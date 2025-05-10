@@ -1,91 +1,57 @@
 import random
-from environment import TerrainType, AntPerception
+from environment import TerrainType
 from ant import AntAction, AntStrategy
+from common import Direction, AntPerception
 
 class NonCooperativeStrategy(AntStrategy):
     """
-    Strategy where ants:
-    1. Initialize memory with the colony position.
-    2. Update memory with the closest food to the colony.
-    3. Calculate the shortest path between food and the colony.
+    Stratégie non coopérative : chaque fourmi agit pour maximiser sa propre collecte de nourriture,
+    sans coordination avec les autres. Elle ne tient pas compte des phéromones déposées par d'autres.
     """
 
-    def __init__(self):
-        self.memory = {}  # ant_id -> {"colony": tuple, "closest_food": tuple, "closest_distance": float}
-
     def decide_action(self, perception: AntPerception) -> AntAction:
-        ant_id = perception.ant_id
-        if ant_id not in self.memory:
-            self.memory[ant_id] = {"colony": None, "closest_food": None, "closest_distance": float("inf")}
-
-        mem = self.memory[ant_id]
-
-        # Update memory with visible cells
-        for rel_pos, terrain in perception.visible_cells.items():
-            abs_pos = self._absolute_position(perception, rel_pos)
-            if terrain == TerrainType.COLONY:
-                mem["colony"] = abs_pos
-            elif terrain == TerrainType.FOOD:
-                self._update_closest_food(mem, abs_pos)
-
-        # 1. If not carrying food, go to the closest known food
         if not perception.has_food:
-            # If standing on food, pick it up
-            if (0, 0) in perception.visible_cells and perception.visible_cells[(0, 0)] == TerrainType.FOOD:
-                return AntAction.PICK_UP_FOOD
-            # Otherwise, move towards the closest known food
-            if mem["closest_food"]:
-                return self._move_towards(perception, mem["closest_food"])
-            # If no food is known, explore randomly
-            return self._random_move()
-        
-        # 2. If carrying food, return to the colony
+            if perception.can_see_food:
+                print("¨Perception visible cells: ", perception.visible_cells)
+                # 1. Ramasser la nourriture si la case courante est de la nourriture
+                if perception.visible_cells[(0, 0)] == TerrainType.FOOD:
+                    return AntAction.PICK_UP_FOOD
+                else:
+                    ant_direction = perception._get_direction_from_delta(0, 0)
+                    if perception.get_food_direction() is not None:
+                        # 2. Se déplacer vers la direction de la nourriture
+                        return self._move_towards_direction(ant_direction, perception.get_food_direction())
+                    return self._random_move()
+            else:
+                return self._random_move()
         else:
-            # If standing on the colony, drop the food
-            if (0, 0) in perception.visible_cells and perception.visible_cells[(0, 0)] == TerrainType.COLONY:
-                return AntAction.DROP_FOOD
-            # Otherwise, move towards the colony
-            if mem["colony"]:
-                return self._move_towards(perception, mem["colony"])
-            # If the colony is not known, explore randomly
-            return self._random_move()
-        
-    def _absolute_position(self, perception, rel_pos):
-        """Calculate the absolute position based on the relative position."""
-        return (rel_pos[0], rel_pos[1])
+            if perception.can_see_colony:
+                if perception.visible_cells[(0, 0)] == TerrainType.COLONY:
+                    return AntAction.DROP_FOOD
+                else:
+                    ant_direction = perception._get_direction_from_delta(0, 0)
+                    if perception.get_colony_direction() is not None:
+                        # 3. Se déplacer vers la direction de la colonie
+                        return self._move_towards_direction(ant_direction, perception.get_colony_direction())
+                    return self._random_move()
+            else: 
+                return self._random_move()
 
-    def _update_closest_food(self, mem, food_pos):
-        """Update the closest food to the colony in memory."""
-        if mem["colony"]:
-            distance = self._manhattan_distance(mem["colony"], food_pos)
-            if distance < mem["closest_distance"]:
-                mem["closest_food"] = food_pos
-                mem["closest_distance"] = distance
 
-    def _manhattan_distance(self, pos1, pos2):
-        """Calculate the Manhattan distance between two positions."""
-        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
-
-    def _move_towards(self, perception, target):
-        """Move greedily towards the target."""
-        dx = target[0]
-        dy = target[1]
-
-        if dy > 0:
+    def _move_towards_direction(self, current_direction, target_direction):
+        """
+        Retourne l'action à effectuer pour s'orienter vers la direction cible.
+        """
+        if current_direction == target_direction:
             return AntAction.MOVE_FORWARD
-        elif dx > 0:
+        diff = (target_direction - current_direction) % 8
+        if diff == 1 or diff > 4:
             return AntAction.TURN_RIGHT
-        elif dx < 0:
-            return AntAction.TURN_LEFT
         else:
-            return self._random_move()
+            return AntAction.TURN_LEFT
 
     def _random_move(self):
-        """Perform a random movement."""
-        r = random.random()
-        if r < 0.5:
-            return AntAction.MOVE_FORWARD
-        elif r < 0.75:
-            return AntAction.TURN_LEFT
-        else:
-            return AntAction.TURN_RIGHT
+        """
+        Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
+        """
+        return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT])
