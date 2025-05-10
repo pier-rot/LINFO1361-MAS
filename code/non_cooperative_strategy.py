@@ -34,7 +34,7 @@ class NonCooperativeStrategy(AntStrategy):
         """
         if current_direction == target_direction:
             return AntAction.MOVE_FORWARD
-        diff = (target_direction - current_direction) % 8
+        diff = (target_direction- current_direction.value) % 8
         if diff == 1 or diff > 4:
             return AntAction.TURN_RIGHT
         else:
