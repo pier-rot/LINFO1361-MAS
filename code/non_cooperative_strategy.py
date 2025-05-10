@@ -19,7 +19,7 @@ class NonCooperativeStrategy(AntStrategy):
             else:
                 return self._random_move()
         else:
-            if perception.can_see_colony:
+            if TerrainType.COLONY in [cell for cell in perception.visible_cells.values()]:
                 if perception.visible_cells[(0, 0)] == TerrainType.COLONY:
                     return AntAction.DROP_FOOD
                 else:
@@ -35,7 +35,9 @@ class NonCooperativeStrategy(AntStrategy):
         if current_direction == target_direction:
             return AntAction.MOVE_FORWARD
         diff = (target_direction- current_direction.value) % 8
-        if diff == 1 or diff > 4:
+        if diff == 0:
+            return AntAction.MOVE_FORWARD
+        elif diff < 4:
             return AntAction.TURN_RIGHT
         else:
             return AntAction.TURN_LEFT
