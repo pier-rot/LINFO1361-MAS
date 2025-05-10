@@ -1,7 +1,6 @@
 import random
-from environment import TerrainType
 from ant import AntAction, AntStrategy
-from common import Direction, AntPerception
+from common import TerrainType, AntPerception
 
 class NonCooperativeStrategy(AntStrategy):
     """
@@ -11,17 +10,12 @@ class NonCooperativeStrategy(AntStrategy):
 
     def decide_action(self, perception: AntPerception) -> AntAction:
         if not perception.has_food:
-            if perception.can_see_food:
-                print("¨Perception visible cells: ", perception.visible_cells)
+            if TerrainType.FOOD in [cell for cell in perception.visible_cells.values()]:
                 # 1. Ramasser la nourriture si la case courante est de la nourriture
                 if perception.visible_cells[(0, 0)] == TerrainType.FOOD:
                     return AntAction.PICK_UP_FOOD
                 else:
-                    ant_direction = perception._get_direction_from_delta(0, 0)
-                    if perception.get_food_direction() is not None:
-                        # 2. Se déplacer vers la direction de la nourriture
-                        return self._move_towards_direction(ant_direction, perception.get_food_direction())
-                    return self._random_move()
+                   return self._move_towards_direction(perception.direction, perception.get_food_direction())
             else:
                 return self._random_move()
         else:
@@ -29,11 +23,7 @@ class NonCooperativeStrategy(AntStrategy):
                 if perception.visible_cells[(0, 0)] == TerrainType.COLONY:
                     return AntAction.DROP_FOOD
                 else:
-                    ant_direction = perception._get_direction_from_delta(0, 0)
-                    if perception.get_colony_direction() is not None:
-                        # 3. Se déplacer vers la direction de la colonie
-                        return self._move_towards_direction(ant_direction, perception.get_colony_direction())
-                    return self._random_move()
+                    return self._move_towards_direction(perception.direction, perception.get_colony_direction())
             else: 
                 return self._random_move()
 
