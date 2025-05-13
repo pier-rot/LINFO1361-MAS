@@ -43,13 +43,27 @@ class CooperativeStrategy(AntStrategy):
     def is_in_the_same_direction(self, perception, direction):
         return perception.direction.value == direction
 
-    def decide_action(self, perception: AntPerception) -> AntAction:      
+    def decide_action(self, perception: AntPerception) -> AntAction: 
+        ant_id = perception.ant_id
+        if ant_id not in self.memory:
+            self.memory[ant_id] = {
+                "food_pos": [0, 0],
+                "colony_pos": [0,0],
+                "relative_pos": [0,0],
+                "knows_path" : False,
+                "nSteps": 0
+            }
+
+        mem = self.memory[ant_id]    
+        mem["nSteps"] += 1
+         
         if len(perception.visible_cells) <= 4:
             return self.turn_right()  
         else:
             if self.has_food(perception):
                 if self.sees_colony(perception):
                     if self.is_standing_on_colony(perception):
+                        mem["nSteps"] = 0
                         return self.drop_food()
                     else:
                         action = self._move_towards_direction(perception.direction, perception.get_colony_direction())
@@ -59,10 +73,13 @@ class CooperativeStrategy(AntStrategy):
                     direction = AntPerception._get_direction_from_delta(perception,x,y)
                     return self._move_towards_direction(perception.direction, direction)
                 else:
-                    return self._random_move_food()
+                    if mem["nSteps"] < 200:
+                        return self._random_move_food()
+                    return self._random_move()
             else :
                 if self.sees_food(perception):
                     if self.is_standing_on_food(perception):
+                        mem["nSteps"] = 0
                         return self.pickup_food()
                     else:
                         action = self._move_towards_direction(perception.direction, perception.get_food_direction())
@@ -72,6 +89,8 @@ class CooperativeStrategy(AntStrategy):
                     direction = AntPerception._get_direction_from_delta(perception,x,y)
                     return self._move_towards_direction(perception.direction, direction)
                 else:
+                    if mem["nSteps"] < 200:
+                        return self._random_move_home()
                     return self._random_move()
 
     def _move_towards_direction(self, current_direction, target_direction):
@@ -108,8 +127,12 @@ class CooperativeStrategy(AntStrategy):
         """
         Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
         """
+        return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT])
+    def _random_move_home(self):
+        """
+        Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
+        """
         return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT, AntAction.DEPOSIT_HOME_PHEROMONE])
-
     def _random_move_food(self):
         """
         Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
