@@ -47,50 +47,164 @@ class NonCooperativeStrategy(AntStrategy):
     def is_in_the_same_direction(self, perception, direction):
         return perception.direction.value == direction
     
+    def get_direction_to_origin(self, fr):
+        x, y = fr[0], fr[1]
+        if x > 0:
+            dx = 1
+        elif x < 0:
+            dx = -1
+        else:
+            dx = 0
+        if y > 0:
+            dy = 1
+        elif y < 0:
+            dy = -1
+        else:
+            dy = 0
+        directions = {
+            (0, -1): 2,   # NORTH
+            (1, -1): 1,   # NORTHEAST
+            (1, 0): 0,    # EAST
+            (1, 1): 7,    # SOUTHEAST
+            (0, 1): 6,    # SOUTH
+            (-1, 1): 5,   # SOUTHWEST
+            (-1, 0): 4,   # WEST
+            (-1, -1): 3   # NORTHWEST
+        }
+        if (dx, dy) == (0, 0):
+            return None
+        else:
+            return directions[(dx, dy)]
+        
+    def get_direction_to_food(self, pos):
+        x, y = pos[0], pos[1]
+        if x > 0:
+            dx = 1
+        elif x < 0:
+            dx = -1
+        else:
+            dx = 0
+        if y > 0:
+            dy = 1
+        elif y < 0:
+            dy = -1
+        else:
+            dy = 0
+        directions = {
+            (0, -1): 6,   # NORTH
+            (1, -1): 5,   # NORTHEAST
+            (1, 0): 4,    # EAST
+            (1, 1): 3,    # SOUTHEAST
+            (0, 1): 2,    # SOUTH
+            (-1, 1): 1,   # SOUTHWEST
+            (-1, 0): 0,   # WEST
+            (-1, -1): 7   # NORTHWEST
+        }
+        if (dx, dy) == (0, 0):
+            return None
+        else:
+            return directions[(dx, dy)]
 
     def decide_action(self, perception: AntPerception) -> AntAction:
         ant_id = perception.ant_id
         if ant_id not in self.memory:
             self.memory[ant_id] = {
-                "path": [],
-                "init_direction": perception.direction.value,
-                "food_direction": None,
-                "wall": False
+                "food_pos": [0, 0],
+                "colony_pos": [0,0],
+                "relative_pos": [0,0],
+                "knows_path" : False
             }
 
         mem = self.memory[ant_id]
 
-        if self.has_food(perception) or mem["wall"]:
+        
+
+        if self.has_food(perception):
             if self.sees_colony(perception):
                 if self.is_standing_on_colony(perception):
-                    if self.has_food(perception):
-                        return self.drop_food()
-                    else:
-                        mem["init_direction"] = (mem["init_direction"] + 1) % 8
-                        mem["wall"] = False
-                        return self.turn_right()
+                    mem["relative_pos"] = [0,0]
+                    return self.drop_food()
                 else:
-                    return self._move_towards_direction(perception.direction, perception.get_colony_direction())
-            if self.is_in_the_opposite_direction(perception, mem["init_direction"]):
-                return self.move_forward()
+                    action = self._move_towards_direction(perception.direction, perception.get_colony_direction())
+                    if action == AntAction.MOVE_FORWARD:
+                        mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
+                        mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
+                    return action
             else:
-                return self.turn_right()
+                # Aller vers (0,0)
+                direction = self.get_direction_to_origin(mem["relative_pos"])
+                if direction is not None:
+                    action = self._move_towards_direction(perception.direction, direction)
+                    if action == AntAction.MOVE_FORWARD:
+                        mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
+                        mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
+                    return action
+                else:
+                    return self._random_move()
         else :
-            if mem["food_direction"]:
-                if not self.is_in_the_same_direction(perception, mem["food_direction"]):
-                    return self.turn_right()
+            if mem["knows_path"]:
+                if self.sees_food(perception):
+                    if self.is_standing_on_food(perception):
+                        return self.pickup_food()
+                    else:
+                        action = self._move_towards_direction(perception.direction, perception.get_food_direction())
+                        if action == AntAction.MOVE_FORWARD:
+                            mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
+                            mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
+                        return action
+                else:
+                    if len(perception.visible_cells) <= 4: # contre un mur
+                        mem["knows_path"] = False
+                        return self._random_move()
+                    direction = self.get_direction_to_food(mem["food_pos"])
+                    if direction is not None:
+                        action = self._move_towards_direction(perception.direction, direction)
+                        if action == AntAction.MOVE_FORWARD:
+                            mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
+                            mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
+                        return action
+                    else:
+                        return self._random_move()
+
             if self.sees_food(perception):
                 if self.is_standing_on_food(perception):
-                    mem["food_direction"] = perception.direction.value
-                    print(mem["food_direction"])
+                    mem["food_pos"][0] = mem["relative_pos"][0]
+                    mem["food_pos"][1] = mem["relative_pos"][1]
+                    mem["knows_path"] = True
                     return self.pickup_food()
                 else:
-                    return self._move_towards_direction(perception.direction, perception.get_food_direction())
+                    action = self._move_towards_direction(perception.direction, perception.get_food_direction())
+                    if action == AntAction.MOVE_FORWARD:
+                        mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
+                        mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
+                    return action
             if len(perception.visible_cells) <= 4:
-                mem["wall"] = True
                 return self.turn_right()
             else:
-                return self.move_forward()
+                action = self._random_move()
+                if action == AntAction.MOVE_FORWARD:
+                    mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
+                    mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
+                return action
+
+    def updateRelativePos(self, perception):
+        if perception.direction.value == 0:
+            return [-1, 0]
+        elif perception.direction.value == 1:
+            return [-1, 1]
+        elif perception.direction.value == 2:
+            return [0, 1]
+        elif perception.direction.value == 3:
+            return [1, 1]
+        elif perception.direction.value == 4:
+            return [1, 0]
+        elif perception.direction.value == 5:
+            return [1, -1]
+        elif perception.direction.value == 6:
+            return [0, -1]
+        elif perception.direction.value == 7:
+            return [-1, -1]
+
 
 
     def _move_towards_direction(self, current_direction, target_direction):
