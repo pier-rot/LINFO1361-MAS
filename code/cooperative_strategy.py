@@ -4,9 +4,6 @@ from common import TerrainType, AntPerception
 
 class CooperativeStrategy(AntStrategy):
 
-    def __init__(self):
-        self.memory = {}
-
     def sees_colony(self, perception):
         return TerrainType.COLONY in [cell for cell in perception.visible_cells.values()]
     
@@ -36,32 +33,17 @@ class CooperativeStrategy(AntStrategy):
 
     def move_forward(self):
         return AntAction.MOVE_FORWARD
-    
-    def is_in_the_opposite_direction(self, perception, direction):
-        return perception.direction.value == (direction + 4) % 8
-    
-    def is_in_the_same_direction(self, perception, direction):
-        return perception.direction.value == direction
 
     def decide_action(self, perception: AntPerception) -> AntAction: 
-        ant_id = perception.ant_id
-        if ant_id not in self.memory:
-            self.memory[ant_id] = {
-                "nSteps": 0
-            }
-
-        mem = self.memory[ant_id]    
-        mem["nSteps"] += 1
 
         # Déposer un phéromone une fois sur trois seulement
-        should_deposit = (mem["nSteps"] % 3 == 0)
+        should_deposit = (perception.steps_taken % 3 == 0)
          
         if self.has_food(perception):
-            if should_deposit and perception.home_pheromone.get((0,0), 0) < 50:
+            if should_deposit and perception.food_pheromone.get((0,0), 0) < 50:
                 return AntAction.DEPOSIT_FOOD_PHEROMONE
             if self.sees_colony(perception):
                 if self.is_standing_on_colony(perception):
-                    mem["nSteps"] = 0
                     return self.drop_food()
                 else:
                     return self._move_towards_direction(perception.direction, perception.get_colony_direction())
@@ -76,11 +58,10 @@ class CooperativeStrategy(AntStrategy):
             return self._random_move()
         else :
             # Déposer un phéromone FOOD en cherchant la nourriture
-            if should_deposit and perception.food_pheromone.get((0,0), 0) < 50:
+            if should_deposit and perception.home_pheromone.get((0,0), 0) < 50:
                 return AntAction.DEPOSIT_HOME_PHEROMONE
             if self.sees_food(perception):
                 if self.is_standing_on_food(perception):
-                    mem["nSteps"] = 0
                     return self.pickup_food()
                 else:
                     return self._move_towards_direction(perception.direction, perception.get_food_direction())
