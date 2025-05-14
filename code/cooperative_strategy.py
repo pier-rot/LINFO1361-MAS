@@ -111,4 +111,10 @@ class CooperativeStrategy(AntStrategy):
         """
         Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
         """
-        return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT])
+        choice = random.random()
+        if choice < 0.8:
+            return AntAction.MOVE_FORWARD
+        elif choice < 0.9:
+            return AntAction.TURN_LEFT
+        else:
+            return AntAction.TURN_RIGHT
