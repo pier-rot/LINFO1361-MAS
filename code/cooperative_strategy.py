@@ -105,36 +105,10 @@ class CooperativeStrategy(AntStrategy):
         elif diff < 4:
             return AntAction.TURN_RIGHT
         else:
-            return AntAction.TURN_LEFT
-        
-    def move_towards_pheromones(self, current_direction, pos):
-        x, y = pos[0], pos[1]        
-        directions = {
-            (-2, 2): AntAction.TURN_LEFT,   # NORTH
-            (-1, 1): AntAction.TURN_LEFT,   # NORTHEAST
-            (-1, 2): AntAction.TURN_LEFT,    # EAST
-            (0, 1): AntAction.MOVE_FORWARD,    # SOUTHEAST
-            (0, 2): AntAction.MOVE_FORWARD,    # SOUTH
-            (0, 3): AntAction.MOVE_FORWARD,   # SOUTHWEST
-            (1, 1): AntAction.TURN_RIGHT,   # WEST
-            (1, 2): AntAction.TURN_RIGHT,   # NORTHWEST
-            (2, 2): AntAction.TURN_RIGHT   # NORTHWEST
-        }
-        return directions[(x,y)]
-    
+            return AntAction.TURN_LEFT    
 
     def _random_move(self):
         """
         Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
         """
         return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT])
-    def _random_move_home(self):
-        """
-        Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
-        """
-        return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT, AntAction.DEPOSIT_HOME_PHEROMONE])
-    def _random_move_food(self):
-        """
-        Effectue un mouvement aléatoire (avancer, tourner à gauche ou à droite).
-        """
-        return random.choice([AntAction.MOVE_FORWARD, AntAction.TURN_LEFT, AntAction.TURN_RIGHT, AntAction.DEPOSIT_FOOD_PHEROMONE])
