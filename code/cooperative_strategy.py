@@ -47,51 +47,51 @@ class CooperativeStrategy(AntStrategy):
         ant_id = perception.ant_id
         if ant_id not in self.memory:
             self.memory[ant_id] = {
-                "food_pos": [0, 0],
-                "colony_pos": [0,0],
-                "relative_pos": [0,0],
-                "knows_path" : False,
                 "nSteps": 0
             }
 
         mem = self.memory[ant_id]    
         mem["nSteps"] += 1
+
+        # Déposer un phéromone une fois sur trois seulement
+        should_deposit = (mem["nSteps"] % 3 == 0)
          
-        if len(perception.visible_cells) <= 4:
-            return self.turn_right()  
-        else:
-            if self.has_food(perception):
-                if self.sees_colony(perception):
-                    if self.is_standing_on_colony(perception):
-                        mem["nSteps"] = 0
-                        return self.drop_food()
-                    else:
-                        action = self._move_towards_direction(perception.direction, perception.get_colony_direction())
-                        return action
-                elif len(perception.home_pheromone) > 0 and max(perception.home_pheromone.values()) > 40:
-                    x,y = max(perception.home_pheromone)
-                    direction = AntPerception._get_direction_from_delta(perception,x,y)
-                    return self._move_towards_direction(perception.direction, direction)
+        if self.has_food(perception):
+            if should_deposit and perception.home_pheromone.get((0,0), 0) < 50:
+                return AntAction.DEPOSIT_FOOD_PHEROMONE
+            if self.sees_colony(perception):
+                if self.is_standing_on_colony(perception):
+                    mem["nSteps"] = 0
+                    return self.drop_food()
                 else:
-                    if mem["nSteps"] < 200:
-                        return self._random_move_food()
-                    return self._random_move()
-            else :
-                if self.sees_food(perception):
-                    if self.is_standing_on_food(perception):
-                        mem["nSteps"] = 0
-                        return self.pickup_food()
-                    else:
-                        action = self._move_towards_direction(perception.direction, perception.get_food_direction())
-                        return action
-                elif len(perception.food_pheromone) > 0 and max(perception.food_pheromone.values()) > 40:
-                    x,y = max(perception.food_pheromone)
-                    direction = AntPerception._get_direction_from_delta(perception,x,y)
+                    return self._move_towards_direction(perception.direction, perception.get_colony_direction())
+            if len(perception.home_pheromone) > 0:
+                best = max(perception.home_pheromone.items(), key=lambda x: x[1] if x[0] != (0,0) else -1)
+                if best[1] > 0:
+                    direction = AntPerception._get_direction_from_delta(perception, *best[0])
                     return self._move_towards_direction(perception.direction, direction)
+            if len(perception.visible_cells) <= 4:
+                return self.turn_right()
+            # Sinon, mouvement aléatoire
+            return self._random_move()
+        else :
+            # Déposer un phéromone FOOD en cherchant la nourriture
+            if should_deposit and perception.food_pheromone.get((0,0), 0) < 50:
+                return AntAction.DEPOSIT_HOME_PHEROMONE
+            if self.sees_food(perception):
+                if self.is_standing_on_food(perception):
+                    mem["nSteps"] = 0
+                    return self.pickup_food()
                 else:
-                    if mem["nSteps"] < 200:
-                        return self._random_move_home()
-                    return self._random_move()
+                    return self._move_towards_direction(perception.direction, perception.get_food_direction())
+            if len(perception.food_pheromone) > 0:
+                best = max(perception.food_pheromone.items(), key=lambda x: x[1] if x[0] != (0,0) else -1)
+                if best[1] > 0:
+                    direction = AntPerception._get_direction_from_delta(perception, *best[0])
+                    return self._move_towards_direction(perception.direction, direction)
+            if len(perception.visible_cells) <= 4:
+                return self.turn_right()
+            return self._random_move()
 
     def _move_towards_direction(self, current_direction, target_direction):
         """

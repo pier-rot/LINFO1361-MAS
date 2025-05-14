@@ -9,7 +9,7 @@ def run_simulation():
     try:
         # Exécute la commande avec les arguments spécifiés
         result = subprocess.run(
-            ["python", "simulation.py", "--strategy-file", "cooperative_strategy.py", "--env", ".\\envs\\XX_square_diag.txt"],
+            ["python", "simulation.py", "--strategy-file", "non_cooperative_strategy.py", "--env", ".\\envs\\XX_square_diag.txt"],
             capture_output=True,
             text=True
         )
