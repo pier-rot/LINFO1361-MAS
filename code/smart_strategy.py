@@ -91,10 +91,7 @@ class SmartStrategy(AntStrategy):
                 "colony_pos": [0,0],
                 "relative_pos": [0,0],
                 "blocked": False,
-                "nSteps": -1,
-                "move_stack": [],
-                "returning": False,
-                "n": 0
+                "nSteps": -1
             }
         mem = self.memory[ant_id]
 
@@ -107,14 +104,12 @@ class SmartStrategy(AntStrategy):
         if mem["blocked"]:
             # Si toujours bloqué, tourne encore à droite
             if self.get_front_cell(perception) == TerrainType.WALL or len(perception.visible_cells) <= 1:
-                mem["move_stack"].append(AntAction.TURN_LEFT)
                 return AntAction.TURN_RIGHT
             # Sinon, avance et sort de l'état bloqué
             else:
                 mem["blocked"] = False
                 mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                 mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                mem["move_stack"].append(AntAction.MOVE_FORWARD)
                 return AntAction.MOVE_FORWARD
          
         # --- Porte de la nourriture --- #
@@ -124,79 +119,40 @@ class SmartStrategy(AntStrategy):
             if should_deposit and perception.food_pheromone.get((0,0), 0) < 50 and mem["nSteps"] <= 500 and sum(x for x in perception.food_pheromone.values() if x > 1) < 7:
                 return AntAction.DEPOSIT_FOOD_PHEROMONE
             
-            if mem.get("returning", False) and mem["move_stack"] and len(mem["move_stack"]) < 500:
-                if mem["n"] == 4:
-                    return mem["move_stack"].pop()
-                mem["n"] += 1
-                return AntAction.TURN_RIGHT
-
             # Si bloqué, tourne à droite
             if self.get_front_cell(perception) == TerrainType.WALL or len(perception.visible_cells) <= 1:
                 mem["blocked"] = True
-                mem["move_stack"].append(AntAction.TURN_LEFT)
                 return AntAction.TURN_RIGHT
             
             # Si la colonie est visible, priorité vers celle-ci
             if self.sees_colony(perception):
                 if self.is_standing_on_colony(perception):
-                    mem["returning"] = False
                     mem["relative_pos"] = [0,0]
                     mem["nSteps"] = 0
-                    mem["n"] = 0
-                    mem["move_stack"] = []
                     return self.drop_food()
                 else:
                     action = self._move_towards_direction(perception, perception.direction, perception.get_colony_direction())
                     if action == AntAction.MOVE_FORWARD:
                         mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                         mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                        mem["move_stack"].append(AntAction.MOVE_FORWARD)
-                    elif action == AntAction.TURN_LEFT:
-                        mem["move_stack"].append(AntAction.TURN_RIGHT)
-                    elif action == AntAction.TURN_RIGHT:
-                        mem["move_stack"].append(AntAction.TURN_LEFT)
                     return action
             
             # Suivre le gradient de phéromone HOME
             if len(perception.home_pheromone) > 0 :
                 best = max(perception.home_pheromone.items(), key=lambda x: x[1] if x[0] != (0,0) else -1)
-                if best[1] > 50:
+                if best[1] > 0:
                     direction = AntPerception._get_direction_from_delta(perception, *best[0])
                     action = self._move_towards_direction(perception, perception.direction, direction)
                     if action == AntAction.MOVE_FORWARD:
                         mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                         mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                        mem["move_stack"].append(AntAction.MOVE_FORWARD)
-                    elif action == AntAction.TURN_LEFT:
-                        mem["move_stack"].append(AntAction.TURN_RIGHT)
-                    elif action == AntAction.TURN_RIGHT:
-                        mem["move_stack"].append(AntAction.TURN_LEFT)
-                    return action   
-
-            # Tenter de se diriger vers la colonie
-            direction = self.get_direction_to_origin(mem["relative_pos"])
-            if direction is not None:
-                action = self._move_towards_direction(perception, perception.direction, direction)
-                if action == AntAction.MOVE_FORWARD:
-                    mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
-                    mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                    mem["move_stack"].append(AntAction.MOVE_FORWARD)
-                elif action == AntAction.TURN_LEFT:
-                    mem["move_stack"].append(AntAction.TURN_RIGHT)
-                elif action == AntAction.TURN_RIGHT:
-                    mem["move_stack"].append(AntAction.TURN_LEFT)
-                return action         
+                    return action     
             
             # Sinon, mouvement aléatoire
             action = self._random_move(perception)
             if action == AntAction.MOVE_FORWARD:
                 mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                 mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                mem["move_stack"].append(AntAction.MOVE_FORWARD)
-            elif action == AntAction.TURN_LEFT:
-                mem["move_stack"].append(AntAction.TURN_RIGHT)
-            elif action == AntAction.TURN_RIGHT:
-                mem["move_stack"].append(AntAction.TURN_LEFT)
             return action
         
         # --- Cherche de la nourriture --- #
@@ -208,7 +164,6 @@ class SmartStrategy(AntStrategy):
             # Si bloqué, tourne
             if self.get_front_cell(perception) == TerrainType.WALL or len(perception.visible_cells) <= 1:
                 mem["blocked"] = True
-                mem["move_stack"].append(AntAction.TURN_LEFT)
                 return AntAction.TURN_RIGHT
             
             # Si la nourriture est visible, priorité vers celle-ci
@@ -216,35 +171,23 @@ class SmartStrategy(AntStrategy):
                 if self.is_standing_on_food(perception):
                     mem["food_pos"][0] = mem["relative_pos"][0]
                     mem["food_pos"][1] = mem["relative_pos"][1]
-                    mem["nSteps"] = 0
-                    mem["returning"] = True
                     return self.pickup_food()
                 else:
                     action = self._move_towards_direction(perception, perception.direction, perception.get_food_direction())
                     if action == AntAction.MOVE_FORWARD:
                         mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                         mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                        mem["move_stack"].append(AntAction.MOVE_FORWARD)
-                    elif action == AntAction.TURN_LEFT:
-                        mem["move_stack"].append(AntAction.TURN_RIGHT)
-                    elif action == AntAction.TURN_RIGHT:
-                        mem["move_stack"].append(AntAction.TURN_LEFT)
                     return action
                 
             # Suivre le gradient de phéromone FOOD
             if len(perception.food_pheromone) > 0 :
                 best = max(perception.food_pheromone.items(), key=lambda x: x[1] if x[0] != (0,0) else -1)
-                if best[1] > 50:
+                if best[1] > 0:
                     direction = AntPerception._get_direction_from_delta(perception, *best[0])
                     action = self._move_towards_direction(perception, perception.direction, direction)
                     if action == AntAction.MOVE_FORWARD:
                         mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                         mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                        mem["move_stack"].append(AntAction.MOVE_FORWARD)
-                    elif action == AntAction.TURN_LEFT:
-                        mem["move_stack"].append(AntAction.TURN_RIGHT)
-                    elif action == AntAction.TURN_RIGHT:
-                        mem["move_stack"].append(AntAction.TURN_LEFT)
                     return action
             
             # Exploration intelligente
@@ -252,11 +195,6 @@ class SmartStrategy(AntStrategy):
             if action == AntAction.MOVE_FORWARD:
                 mem["relative_pos"][0] += self.updateRelativePos(perception)[0]
                 mem["relative_pos"][1] += self.updateRelativePos(perception)[1]
-                mem["move_stack"].append(AntAction.MOVE_FORWARD)
-            elif action == AntAction.TURN_LEFT:
-                mem["move_stack"].append(AntAction.TURN_RIGHT)
-            elif action == AntAction.TURN_RIGHT:
-                mem["move_stack"].append(AntAction.TURN_LEFT)
             return action
         
     def updateRelativePos(self, perception):
@@ -293,9 +231,9 @@ class SmartStrategy(AntStrategy):
 
     def _random_move(self, perception):
         choice = random.random()
-        if choice < 0.9:
+        if choice < 0.88:
             return AntAction.MOVE_FORWARD
-        elif choice < 0.95:
+        elif choice < 0.94:
             return AntAction.TURN_LEFT
         else:
             return AntAction.TURN_RIGHT
